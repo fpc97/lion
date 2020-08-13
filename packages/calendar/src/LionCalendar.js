@@ -156,7 +156,7 @@ export class LionCalendar extends LocalizeMixin(LitElement) {
   render() {
     return html`
       <div class="calendar" role="application">
-        ${this.__renderHeader()} ${this.__renderData()}
+        ${this.__renderNavigation()} ${this.__renderData()}
       </div>
     `;
   }
@@ -165,12 +165,12 @@ export class LionCalendar extends LocalizeMixin(LitElement) {
     return this.__focusedDate;
   }
 
-  goToNextMonth() {
-    this.__modifyDate(1, { dateType: 'centralDate', type: 'Month', mode: 'both' });
+  goToNextDate(type) {
+    this.__modifyDate(1, { dateType: 'centralDate', type, mode: 'both' });
   }
 
-  goToPreviousMonth() {
-    this.__modifyDate(-1, { dateType: 'centralDate', type: 'Month', mode: 'both' });
+  goToPreviousDate(type) {
+    this.__modifyDate(-1, { dateType: 'centralDate', type, mode: 'both' });
   }
 
   async focusDate(date) {
@@ -254,9 +254,7 @@ export class LionCalendar extends LocalizeMixin(LitElement) {
     }
   }
 
-  __renderHeader() {
-    const month = getMonthNames({ locale: this.__getLocale() })[this.centralDate.getMonth()];
-    const year = this.centralDate.getFullYear();
+  __renderMonthNavigation(month, year) {
     const nextMonth =
       this.centralDate.getMonth() === 11
         ? getMonthNames({ locale: this.__getLocale() })[0]
@@ -265,22 +263,36 @@ export class LionCalendar extends LocalizeMixin(LitElement) {
       this.centralDate.getMonth() === 0
         ? getMonthNames({ locale: this.__getLocale() })[11]
         : getMonthNames({ locale: this.__getLocale() })[this.centralDate.getMonth() - 1];
-    const nextYear =
-      this.centralDate.getMonth() === 11
-        ? this.centralDate.getFullYear() + 1
-        : this.centralDate.getFullYear();
-    const previousYear =
-      this.centralDate.getMonth() === 0
-        ? this.centralDate.getFullYear() - 1
-        : this.centralDate.getFullYear();
+    const nextYear = this.centralDate.getMonth() === 11 ? year + 1 : year;
+    const previousYear = this.centralDate.getMonth() === 0 ? year - 1 : year;
+    return html`
+      ${this.__renderPreviousButton('Month', previousMonth, previousYear)}
+      <h2 class="calendar__navigation-heading" id="month" aria-atomic="true">
+        ${month}
+      </h2>
+      ${this.__renderNextButton('Month', nextMonth, nextYear)}
+    `;
+  }
+
+  __renderYearNavigation(month, year) {
+    const nextYear = year + 1;
+    const previousYear = year - 1;
 
     return html`
-      <div class="calendar__header">
-        ${this.__renderPreviousButton(previousMonth, previousYear)}
-        <h2 class="calendar__month-heading" id="month_and_year" aria-atomic="true">
-          ${month} ${year}
-        </h2>
-        ${this.__renderNextButton(nextMonth, nextYear)}
+      ${this.__renderPreviousButton('FullYear', month, previousYear)}
+      <h2 class="calendar__navigation-heading" id="year" aria-atomic="true">
+        ${year}
+      </h2>
+      ${this.__renderNextButton('FullYear', month, nextYear)}
+    `;
+  }
+
+  __renderNavigation() {
+    const month = getMonthNames({ locale: this.__getLocale() })[this.centralDate.getMonth()];
+    const year = this.centralDate.getFullYear();
+    return html`
+      <div class="calendar__navigation">
+        ${this.__renderYearNavigation(month, year)} ${this.__renderMonthNavigation(month, year)}
       </div>
     `;
   }
@@ -302,38 +314,53 @@ export class LionCalendar extends LocalizeMixin(LitElement) {
     });
   }
 
-  __renderPreviousButton(previousMonth, previousYear) {
-    const previousButtonTitle = `${this.msgLit(
-      'lion-calendar:previousMonth',
-    )}, ${previousMonth} ${previousYear}`;
+  __renderPreviousButton(type, previousMonth, previousYear) {
+    const previousButtonTitle = this.__getNavigationLabel(
+      'previous',
+      type,
+      previousMonth,
+      previousYear,
+    );
+    const disabled = type === 'Month' ? this.isPreviousMonthDisabled : this.isPreviousYearDisabled;
+    const clickDateDelegation = function () {
+      this.goToPreviousDate(type);
+    };
 
     return html`
       <button
-        class="calendar__previous-month-button"
+        class="calendar__previous-button"
         aria-label=${previousButtonTitle}
         title=${previousButtonTitle}
-        @click=${this.goToPreviousMonth}
-        ?disabled=${this.isPreviousMonthDisabled}
+        @click=${clickDateDelegation}
+        ?disabled=${disabled}
       >
         &lt;
       </button>
     `;
   }
 
-  __renderNextButton(nextMonth, nextYear) {
-    const nextButtonTitle = `${this.msgLit('lion-calendar:nextMonth')}, ${nextMonth} ${nextYear}`;
+  __renderNextButton(type, nextMonth, nextYear) {
+    const nextButtonTitle = this.__getNavigationLabel('next', type, nextMonth, nextYear);
+    const disabled = type === 'Month' ? this.isNextMonthDisabled : this.isNextYearDisabled;
+    const clickDateDelegation = function () {
+      this.goToNextDate(type);
+    };
 
     return html`
       <button
-        class="calendar__next-month-button"
+        class="calendar__next-button"
         aria-label=${nextButtonTitle}
         title=${nextButtonTitle}
-        @click=${this.goToNextMonth}
-        ?disabled=${this.isNextMonthDisabled}
+        @click=${clickDateDelegation}
+        ?disabled=${disabled}
       >
         &gt;
       </button>
     `;
+  }
+
+  __getNavigationLabel(mode, type, month, year) {
+    return `${this.msgLit(`lion-calendar:${mode}${type}`)}, ${month} ${year}`;
   }
 
   __coreDayPreprocessor(_day, { currentMonth = false } = {}) {
@@ -386,6 +413,14 @@ export class LionCalendar extends LocalizeMixin(LitElement) {
     this.isPreviousMonthDisabled =
       this.minDate && getLastDayPreviousMonth(this.centralDate) < this.minDate;
 
+    this.isNextYearDisabled = false;
+    if (this.maxDate) {
+      this.isNextYearDisabled = this.centralDate.getFullYear() >= this.maxDate.getFullYear();
+    }
+    this.isPreviousYearDisabled = false;
+    if (this.minDate) {
+      this.isPreviousYearDisabled = this.centralDate.getFullYear() <= this.minDate.getFullYear();
+    }
     return data;
   }
 

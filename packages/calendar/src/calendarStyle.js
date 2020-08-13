@@ -13,19 +13,19 @@ export const calendarStyle = css`
     display: block;
   }
 
-  .calendar__header {
+  .calendar__navigation {
     display: flex;
     justify-content: space-between;
     border-bottom: 1px solid #adadad;
     padding: 0 8px;
   }
 
-  .calendar__month-heading {
+  .calendar__navigation-heading {
     margin: 0.5em 0;
   }
 
-  .calendar__previous-month-button,
-  .calendar__next-month-button {
+  .calendar__previous-button,
+  .calendar__next-button {
     background-color: #fff;
     border: 0;
     padding: 0;
